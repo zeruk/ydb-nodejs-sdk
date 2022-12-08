@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "yargs": "^16.1.0",
-    "ydb-sdk": "file:.."
+    "ydb-sdk": "^3.7.0"
   },
   "devDependencies": {
     "@types/crc": "^3.4.0",

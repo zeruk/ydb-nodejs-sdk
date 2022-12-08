@@ -7,7 +7,7 @@ export async function run(logger: Logger, endpoint: string, database: string, ar
         tokenExpirationTimeout: 20000,
     })
     const driver = new Driver({endpoint, database, authService});
-    const timeout = 100000;
+    const timeout = 10000;
     if (!await driver.ready(timeout)) {
         logger.fatal(`Driver has not become ready in ${timeout}ms!`);
         process.exit(1);
