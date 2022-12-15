@@ -1,0 +1,106 @@
+name: Workload and errors sheduler concurrent workflow
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        description: 'SDK language or language+variant'
+        required: true
+        type: string
+      time_between_phases:
+        description: 'Time to wait between phases (sleep command)'
+        default: '10s'
+        type: string
+    secrets:
+      KUBE_CONFIG:
+        required: true
+
+concurrency:
+  group: ${{ github.ref }}-${{ inputs.language }}-test
+
+jobs:
+  run-workload:
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir $HOME/.kube; echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+
+      - name: Create ${{ inputs.language }} test run yaml
+        # TODO: Here later will be kind: deployment instead of kind: job
+        run: |
+          cat > ${{ inputs.language }}-workload.yaml <<EOF
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: ${{ inputs.language }}-workload
+          spec:
+            backoffLimit: 0
+            template:
+              metadata:
+                name: ${{ inputs.language }}-workload
+              spec:
+                containers:
+                - name: ${{ inputs.language }}-workload
+                  image: cr.yandex/crpho4srfnemeb9mi57a/${{ inputs.language }}:latest
+                  args:
+                    - "grpc://database-sample-grpc:2135"
+                    - "/root/database-sample"
+                restartPolicy: Never
+                imagePullSecrets:
+                  - name: innerregistry
+          EOF
+
+      - name: Check builded yaml
+        run: cat ${{ inputs.language }}-workload.yaml
+
+      - name: Run ${{ inputs.language }} workload
+        run: kubectl apply -f ${{ inputs.language }}-workload.yaml
+
+      - name: Wait for workload to end
+        run: kubectl wait --for=condition=complete --timeout 5m job/${{ inputs.language }}-workload
+
+  run-errors-sheduler:
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir $HOME/.kube; echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+
+      - name: Get existing pods
+        run: kubectl get pods
+
+      - run: sleep ${{ inputs.time_between_phases }}
+      
+      - name: Get DB host's internal IP
+        run: |
+          export MARTYR_IP=`kubectl get pods database-sample-0 -o=jsonpath='{.status.podIP}'`
+          echo "MARTYR_IP=$MARTYR_IP" >> $GITHUB_ENV
+      
+      - name: Show DB host's internal IP
+        run: echo ${MARTYR_IP}
+
+      - name: Freeze tablet
+        run: >
+          kubectl run -it --image=busybox --rm tablet-freezer --restart=Never -- sh -c "wget -q -O-
+          '${MARTYR_IP}:8765/tablets/app?TabletID=72057594037968897&node=1&page=SetFreeze&freeze=1'"
+      
+      - run: sleep ${{ inputs.time_between_phases }}
+
+      - name: Unfreeze tablet
+        run: >
+          kubectl run -it --image=busybox --rm tablet-freezer --restart=Never -- sh -c "wget -q -O-
+          '${MARTYR_IP}:8765/tablets/app?TabletID=72057594037968897&node=1&page=SetFreeze&freeze=0'"
+      
+      - run: sleep ${{ inputs.time_between_phases }}
+
+      - name: Delete database pod (it will automatically restart)
+        run: kubectl delete pod database-sample-1
+      
+      - run: sleep ${{ inputs.time_between_phases }}
+
+      - name: Hard shutdown database pod (it will automatically restart)
+        run: kubectl delete pod database-sample-1 --force=true --grace-period=0
+      
+      - run: sleep ${{ inputs.time_between_phases }}
+
+      - name: Kill pod from inside
+        run: kubectl exec -it database-sample-0 -- /bin/bash -c "kill -2 1 && echo 'process killed'";
+      
+      - run: sleep ${{ inputs.time_between_phases }}
