@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       pr:
-        description: 'Pull Request id'
+        description: "Pull Request id"
         required: true
         type: integer
 
@@ -14,8 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: pull/${{ inputs.pr }}/merge
-
+          ref: refs/pull/${{ inputs.pr }}/merge
+          
       - run: npm ci
 
       - uses: codex-team/action-nodejs-package-info@v1
