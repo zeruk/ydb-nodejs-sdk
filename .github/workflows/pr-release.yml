@@ -21,11 +21,6 @@ jobs:
       - uses: codex-team/action-nodejs-package-info@v1
         id: package
 
-      - uses: yandex-cloud/ui-release-action@main
-        with:
-          github-token: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
-          npm-token: ${{ secrets.NODE_AUTH_TOKEN }}
-
       - run: npm version --no-git-tag-version "${{ steps.package.outputs.version }}-pr${{ github.event.pull_request.head.id }}.${{ github.event.pull_request.head.sha }}"
 
       - run: npm publish --dry-run --tag pr
