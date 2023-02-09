@@ -21,8 +21,21 @@ jobs:
       - uses: codex-team/action-nodejs-package-info@v1
         id: package
 
-      - run: npm version --no-git-tag-version "${{ steps.package.outputs.version }}-pr${{ inputs.pr }}.$(git rev-parse --short HEAD)"
+      - run: echo "version=${{ steps.package.outputs.version }}-pr${{ inputs.pr }}.$(git rev-parse --short HEAD)" > $GITHUB_OUTPUT
+        id: version
+
+      - run: npm version --no-git-tag-version "${{ steps.version.version }}"
 
       - run: npm publish --dry-run --tag pr
         env:
-          NODE_AUTH_TOKEN: ${{ inputs.npm-token }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+
+      - name: Add comment to PR
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          comment_tag: slo-image
+          message: |
+            Published version `${{ steps.version.version }}`.
+
+            Install with command `npm i ${{ steps.package.outputs.name }}${{ steps.version.version }}`
+          pr_number: ${{ inputs.pr }}
