@@ -23,7 +23,7 @@
     "pino": "^8.11.0",
     "winston": "^3.8.2",
     "yargs": "^16.1.0",
-    "ydb-sdk": "file:.."
+    "ydb-sdk": "^3.7.0"
   },
   "devDependencies": {
     "@types/crc": "^3.4.0",
